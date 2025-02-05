@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+
 public class RayTracerReflectionsMultiTeapot {
     public static void main(String[] args) throws IOException {
         Scene scene = OBJParser.parse("teapot.obj");
@@ -15,16 +16,22 @@ public class RayTracerReflectionsMultiTeapot {
         adjustFaceIndices(secondTeapot, originalVertexCount);
         scene.vertices.addAll(secondTeapot.vertices);
         scene.faces.addAll(secondTeapot.faces);
+
+        // Add a light source to the scene
+        Vector3 lightPosition = new Vector3(5, 10, 5); // Light position
+        scene.light = lightPosition;
+
         Camera camera = new Camera(new Vector3(0, 2, 6), new Vector3(0, 0, -1), 100);
         int width = 800;
         int height = 600;
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+
         int numThreads = Runtime.getRuntime().availableProcessors();
         int rowsPerThread = height / numThreads;
         ArrayList<Thread> threads = new ArrayList<>();
         for (int i = 0; i < numThreads; i++) {
             int startY = i * rowsPerThread;
-            int endY = (i == numThreads - 1) ? height : startY + rowsPerThread;   
+            int endY = (i == numThreads - 1) ? height : startY + rowsPerThread;
             Thread thread = new Thread(new RenderTask(scene, camera, image, width, height, startY, endY));
             threads.add(thread);
             thread.start();
@@ -36,9 +43,11 @@ public class RayTracerReflectionsMultiTeapot {
                 e.printStackTrace();
             }
         }
+
         // Save the final rendered image
-        ImageIO.write(image, "png", new File("output.png"));
+        ImageIO.write(image, "png", new File("outputWithShadows.png"));
     }
+
     private static void adjustFaceIndices(Scene scene, int vertexOffset) {
         for (Face face : scene.faces) {
             for (int i = 0; i < face.vertices.length; i++) {
@@ -46,6 +55,7 @@ public class RayTracerReflectionsMultiTeapot {
             }
         }
     }
+
     private static void translateScene(Scene scene, Vector3 translation) {
         for (int i = 0; i < scene.vertices.size(); i++) {
             Vector3 v = scene.vertices.get(i);
@@ -54,30 +64,38 @@ public class RayTracerReflectionsMultiTeapot {
         }
     }
 }
+
 class Camera {
     Vector3 position;
     Vector3 lookAt;
     double fieldOfView;
+
     Camera(Vector3 position, Vector3 lookAt, double fieldOfView) {
         this.position = position;
         this.lookAt = lookAt;
         this.fieldOfView = fieldOfView;
     }
 }
+
 class Scene {
     ArrayList<Vector3> vertices = new ArrayList<>();
     ArrayList<Face> faces = new ArrayList<>();
+    Vector3 light; // Light source position
 }
+
 class Vector3 {
     double x, y, z;
+
     Vector3(double x, double y, double z) {
         this.x = x;
         this.y = y;
         this.z = z;
     }
+
     Vector3 subtract(Vector3 v) {
         return new Vector3(x - v.x, y - v.y, z - v.z);
     }
+
     Vector3 cross(Vector3 v) {
         return new Vector3(
             y * v.z - z * v.y,
@@ -85,23 +103,29 @@ class Vector3 {
             x * v.y - y * v.x
         );
     }
+
     Vector3 multiply(double scalar) {
         return new Vector3(x * scalar, y * scalar, z * scalar);
     }
+
     double dot(Vector3 v) {
         return x * v.x + y * v.y + z * v.z;
     }
+
     Vector3 normalize() {
         double length = Math.sqrt(x * x + y * y + z * z);
         return new Vector3(x / length, y / length, z / length);
     }
 }
+
 class Face {
     int[] vertices;
+
     Face(int[] vertices) {
         this.vertices = vertices;
     }
 }
+
 class RayTracer {
     public static Intersection intersectRayTriangle(Ray ray, Vector3 v0, Vector3 v1, Vector3 v2) {
         final double EPSILON = 1e-7;
@@ -116,7 +140,7 @@ class RayTracer {
         if (u < 0.0 || u > 1.0) return new Intersection(false, 0, null, null);
         Vector3 q = s.cross(edge1);
         double v = f * ray.direction.dot(q);
-        if (v < 0.0 || u + v > 1.0) return new Intersection(false, 0, null, null);       
+        if (v < 0.0 || u + v > 1.0) return new Intersection(false, 0, null, null);
         double t = f * edge2.dot(q);
         if (t > EPSILON) {
             Vector3 intersectionPoint = new Vector3(
@@ -130,19 +154,23 @@ class RayTracer {
         return new Intersection(false, 0, null, null);
     }
 }
+
 class Ray {
     Vector3 origin;
     Vector3 direction;
+
     Ray(Vector3 origin, Vector3 direction) {
         this.origin = origin;
         this.direction = direction;
     }
 }
+
 class Intersection {
     boolean hit;
     double distance;
     Vector3 point;
     Vector3 normal;
+
     Intersection(boolean hit, double distance, Vector3 point, Vector3 normal) {
         this.hit = hit;
         this.distance = distance;
@@ -150,6 +178,7 @@ class Intersection {
         this.normal = normal;
     }
 }
+
 class OBJParser {
     public static Scene parse(String filePath) throws IOException {
         Scene scene = new Scene();
@@ -178,6 +207,7 @@ class OBJParser {
         return scene;
     }
 }
+
 class RenderTask implements Runnable {
     private Scene scene;
     private Camera camera;
@@ -186,6 +216,7 @@ class RenderTask implements Runnable {
     private int height;
     private int startY;
     private int endY;
+
     public RenderTask(Scene scene, Camera camera, BufferedImage image, int width, int height, int startY, int endY) {
         this.scene = scene;
         this.camera = camera;
@@ -195,6 +226,7 @@ class RenderTask implements Runnable {
         this.startY = startY;
         this.endY = endY;
     }
+
     @Override
     public void run() {
         for (int y = startY; y < endY; y++) {
@@ -206,7 +238,7 @@ class RenderTask implements Runnable {
                 double aspectRatio = (double) width / height;
                 screenX *= aspectRatio;
                 Vector3 rayDirection = new Vector3(screenX, screenY, -1).normalize();
-                Ray ray = new Ray(camera.position, rayDirection);           
+                Ray ray = new Ray(camera.position, rayDirection);
                 Color color = traceRay(ray, scene, 0); // Recursion depth
                 synchronized (image) {
                     image.setRGB(x, y, color.getRGB());
@@ -214,37 +246,69 @@ class RenderTask implements Runnable {
             }
         }
     }
+
     private static Color traceRay(Ray ray, Scene scene, int depth) {
         if (depth > MAX_REFLECTION_DEPTH) {
             return new Color(0, 0, 0); // return black for maximum recursion depth
         }
+
         Intersection closestIntersection = null;
         for (Face face : scene.faces) {
             Vector3 v0 = scene.vertices.get(face.vertices[0]);
             Vector3 v1 = scene.vertices.get(face.vertices[1]);
-            Vector3 v2 = scene.vertices.get(face.vertices[2]);   
+            Vector3 v2 = scene.vertices.get(face.vertices[2]);
             Intersection intersection = RayTracer.intersectRayTriangle(ray, v0, v1, v2);
             if (intersection.hit && (closestIntersection == null || intersection.distance < closestIntersection.distance)) {
                 closestIntersection = intersection;
             }
         }
+
         if (closestIntersection != null) {
+            // Shadow calculation
+            Vector3 lightDirection = scene.light.subtract(closestIntersection.point).normalize();
+            Ray shadowRay = new Ray(closestIntersection.point, lightDirection);
+            boolean inShadow = false;
+
+            for (Face face : scene.faces) {
+                Vector3 v0 = scene.vertices.get(face.vertices[0]);
+                Vector3 v1 = scene.vertices.get(face.vertices[1]);
+                Vector3 v2 = scene.vertices.get(face.vertices[2]);
+                Intersection shadowIntersection = RayTracer.intersectRayTriangle(shadowRay, v0, v1, v2);
+                if (shadowIntersection.hit && shadowIntersection.distance > 1e-7) {
+                    inShadow = true;
+                    break;
+                }
+            }
+
+            // Calculate color with shadows
+            Color baseColor = new Color(200, 200, 200); // Base color of the object
+            if (inShadow) {
+                baseColor = new Color(
+                    (int) (baseColor.getRed() * 0.5),
+                    (int) (baseColor.getGreen() * 0.5),
+                    (int) (baseColor.getBlue() * 0.5)
+                );
+            }
+
+            // Reflection
             Vector3 reflectedDirection = reflect(ray.direction, closestIntersection.normal).normalize();
             Ray reflectedRay = new Ray(closestIntersection.point, reflectedDirection);
             Color reflectedColor = traceRay(reflectedRay, scene, depth + 1);
-            int r = (int) (0.5 * reflectedColor.getRed() + 0.5 * 255);
-            int g = (int) (0.5 * reflectedColor.getGreen() + 0.5 * 255);
-            int b = (int) (0.5 * reflectedColor.getBlue() + 0.5 * 255);       
+
+            // Combine base color and reflected color
+            int r = (int) (0.5 * reflectedColor.getRed() + 0.5 * baseColor.getRed());
+            int g = (int) (0.5 * reflectedColor.getGreen() + 0.5 * baseColor.getGreen());
+            int b = (int) (0.5 * reflectedColor.getBlue() + 0.5 * baseColor.getBlue());
             return new Color(Math.min(r, 255), Math.min(g, 255), Math.min(b, 255));
-        }
-        else 
-        {
-        return new Color(0, 0, 0); // background color
+        } else {
+            return new Color(0, 0, 0); // background color
         }
     }
+
     private static Vector3 reflect(Vector3 direction, Vector3 normal) {
         double dotProduct = direction.dot(normal);
         return direction.subtract(normal.multiply(2 * dotProduct));
-    }    
+    }
+
     private static final int MAX_REFLECTION_DEPTH = 3;
 }
