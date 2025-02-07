@@ -256,15 +256,15 @@ class RenderTask implements Runnable {
                 screenX *= aspectRatio;
 
                 Vector3 rayDirection = new Vector3(screenX, screenY, -1).normalize();
-                // Vector3 ray2Direction = going the opposite direction as the first ray?
+                Vector3 ray2Direction = new Vector3(screenX, screenY, 5).normalize();
                 Ray ray = new Ray(camera.position, rayDirection);
-                // Ray ray2 = new Ray with position the same as the camera position but with some negative z, and ray2Direction as direction?
+                Ray ray2 = new Ray(camera.position.subtract(new Vector3(0,0,40)), ray2Direction);
 
                 Color color = traceRay(ray, scene, 0); // Recursion depth
-                // Color color2 = trace shadow ray... new method or maybe we use the same method but use the color differently?
+                Color color2 = traceShadowRay(ray2, scene, 0);
                 synchronized (image) {
-                    image.setRGB(x, y, color.getRGB());
-                    // we have to change the color.getRGB above to something that takes input from both normal and shadow ray
+                    int avgBlue = color.getBlue() / 2 + color2.getBlue() / 2;
+                    image.setRGB(x, y, new Color(avgBlue, avgBlue, avgBlue).getRGB());
                 }
             }
         }
@@ -298,6 +298,40 @@ class RenderTask implements Runnable {
             int b = (int) (0.5 * reflectedColor.getBlue() + 0.5 * 255);
 
             return new Color(Math.min(r, 255), Math.min(g, 255), Math.min(b, 255));
+        }
+        else
+        {
+            return new Color(0, 0, 0); // background color
+        }
+    }
+
+    private static Color traceShadowRay(Ray ray, Scene scene, int depth) {
+        if (depth > MAX_REFLECTION_DEPTH) {
+            return new Color(0, 0, 0); // return black for maximum recursion depth
+        }
+
+        Intersection closestIntersection = null;
+        for (Face face : scene.faces) {
+            Vector3 v0 = scene.vertices.get(face.vertices[0]);
+            Vector3 v1 = scene.vertices.get(face.vertices[1]);
+            Vector3 v2 = scene.vertices.get(face.vertices[2]);
+
+            Intersection intersection = RayTracer.intersectRayTriangle(ray, v0, v1, v2);
+            if (intersection.hit && (closestIntersection == null || intersection.distance < closestIntersection.distance)) {
+                closestIntersection = intersection;
+            }
+        }
+
+        if (closestIntersection != null) {
+            Vector3 reflectedDirection = reflect(ray.direction, closestIntersection.normal).normalize();
+            Ray reflectedRay = new Ray(closestIntersection.point, reflectedDirection);
+            Color reflectedColor = traceRay(reflectedRay, scene, depth + 1);
+
+            int r = (int) (0.5 * reflectedColor.getRed() + 0.5 * 255);
+            int g = (int) (0.5 * reflectedColor.getGreen() + 0.5 * 255);
+            int b = (int) (0.5 * reflectedColor.getBlue() + 0.5 * 255);
+
+            return new Color(Math.min(r, 255) / 2, 255 - Math.min(g, 255) / 2, 255 - Math.min(b, 255) / 2);
         }
         else
         {
