@@ -28,7 +28,7 @@ public class RayTracerReflectionsMultiTeapot {
 
         // Camera setup
         Camera camera = new Camera(new Vector3(0, 2, 6), new Vector3(0, 0, -1), 100);
-        
+
         int width = 800;
         int height = 600;
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -36,15 +36,15 @@ public class RayTracerReflectionsMultiTeapot {
         // Determine the number of threads (e.g., based on available processors)
         int numThreads = Runtime.getRuntime().availableProcessors();
         int rowsPerThread = height / numThreads;
-        
+
         ArrayList<Thread> threads = new ArrayList<>();
 
         // Create and start rendering tasks
         for (int i = 0; i < numThreads; i++) {
             int startY = i * rowsPerThread;
             int endY = (i == numThreads - 1) ? height : startY + rowsPerThread;
-            
-            Thread thread = new Thread(new RenderTask(scene, camera, image, width, height, startY, endY));
+
+            Thread thread = new Thread(new RenderTask(scene, camera, image, width, height, startY, endY)); // we need to pass in the shadow ray caster's vector position
             threads.add(thread);
             thread.start();
         }
@@ -111,9 +111,9 @@ class Vector3 {
 
     Vector3 cross(Vector3 v) {
         return new Vector3(
-            y * v.z - z * v.y,
-            z * v.x - x * v.z,
-            x * v.y - y * v.x
+                y * v.z - z * v.y,
+                z * v.x - x * v.z,
+                x * v.y - y * v.x
         );
     }
 
@@ -147,22 +147,22 @@ class RayTracer {
         Vector3 h = ray.direction.cross(edge2);
         double a = edge1.dot(h);
         if (a > -EPSILON && a < EPSILON) return new Intersection(false, 0, null, null);
-        
+
         double f = 1.0 / a;
         Vector3 s = ray.origin.subtract(v0);
         double u = f * s.dot(h);
         if (u < 0.0 || u > 1.0) return new Intersection(false, 0, null, null);
-        
+
         Vector3 q = s.cross(edge1);
         double v = f * ray.direction.dot(q);
         if (v < 0.0 || u + v > 1.0) return new Intersection(false, 0, null, null);
-        
+
         double t = f * edge2.dot(q);
         if (t > EPSILON) {
             Vector3 intersectionPoint = new Vector3(
-                ray.origin.x + ray.direction.x * t,
-                ray.origin.y + ray.direction.y * t,
-                ray.origin.z + ray.direction.z * t
+                    ray.origin.x + ray.direction.x * t,
+                    ray.origin.y + ray.direction.y * t,
+                    ray.origin.z + ray.direction.z * t
             );
             Vector3 normal = edge1.cross(edge2).normalize();
             return new Intersection(true, t, intersectionPoint, normal);
@@ -205,9 +205,9 @@ class OBJParser {
                 switch (tokens[0]) {
                     case "v":
                         scene.vertices.add(new Vector3(
-                            Double.parseDouble(tokens[1]),
-                            Double.parseDouble(tokens[2]),
-                            Double.parseDouble(tokens[3])
+                                Double.parseDouble(tokens[1]),
+                                Double.parseDouble(tokens[2]),
+                                Double.parseDouble(tokens[3])
                         ));
                         break;
                     case "f":
@@ -232,8 +232,9 @@ class RenderTask implements Runnable {
     private int height;
     private int startY;
     private int endY;
+    // private Vector3 shadowRayCasterPos
 
-    public RenderTask(Scene scene, Camera camera, BufferedImage image, int width, int height, int startY, int endY) {
+    public RenderTask(Scene scene, Camera camera, BufferedImage image, int width, int height, int startY, int endY) { // we need to pass in the shadow ray caster's vector position
         this.scene = scene;
         this.camera = camera;
         this.image = image;
@@ -253,56 +254,61 @@ class RenderTask implements Runnable {
                 double screenY = 1 - 2 * ndcY;
                 double aspectRatio = (double) width / height;
                 screenX *= aspectRatio;
-                
+
                 Vector3 rayDirection = new Vector3(screenX, screenY, -1).normalize();
+                // Vector3 ray2Direction = going the opposite direction as the first ray?
                 Ray ray = new Ray(camera.position, rayDirection);
-                
+                // Ray ray2 = new Ray with position the same as the camera position but with some negative z, and ray2Direction as direction?
+
                 Color color = traceRay(ray, scene, 0); // Recursion depth
+                // Color color2 = trace shadow ray... new method or maybe we use the same method but use the color differently?
                 synchronized (image) {
                     image.setRGB(x, y, color.getRGB());
+                    // we have to change the color.getRGB above to something that takes input from both normal and shadow ray
                 }
             }
         }
     }
 
+    // potentially make traceShadowRay?
     private static Color traceRay(Ray ray, Scene scene, int depth) {
         if (depth > MAX_REFLECTION_DEPTH) {
             return new Color(0, 0, 0); // return black for maximum recursion depth
         }
-        
+
         Intersection closestIntersection = null;
         for (Face face : scene.faces) {
             Vector3 v0 = scene.vertices.get(face.vertices[0]);
             Vector3 v1 = scene.vertices.get(face.vertices[1]);
             Vector3 v2 = scene.vertices.get(face.vertices[2]);
-            
+
             Intersection intersection = RayTracer.intersectRayTriangle(ray, v0, v1, v2);
             if (intersection.hit && (closestIntersection == null || intersection.distance < closestIntersection.distance)) {
                 closestIntersection = intersection;
             }
         }
-        
+
         if (closestIntersection != null) {
             Vector3 reflectedDirection = reflect(ray.direction, closestIntersection.normal).normalize();
             Ray reflectedRay = new Ray(closestIntersection.point, reflectedDirection);
             Color reflectedColor = traceRay(reflectedRay, scene, depth + 1);
-            
+
             int r = (int) (0.5 * reflectedColor.getRed() + 0.5 * 255);
             int g = (int) (0.5 * reflectedColor.getGreen() + 0.5 * 255);
             int b = (int) (0.5 * reflectedColor.getBlue() + 0.5 * 255);
-            
+
             return new Color(Math.min(r, 255), Math.min(g, 255), Math.min(b, 255));
         }
-        else 
+        else
         {
-        return new Color(0, 0, 0); // background color
+            return new Color(0, 0, 0); // background color
         }
     }
-    
+
     private static Vector3 reflect(Vector3 direction, Vector3 normal) {
         double dotProduct = direction.dot(normal);
         return direction.subtract(normal.multiply(2 * dotProduct));
     }
-    
+
     private static final int MAX_REFLECTION_DEPTH = 3;
 }
