@@ -242,7 +242,7 @@ class RenderTask implements Runnable {
     }
 
     @Override
-    public void run() { // This method does the rendering for a subset of rows in the image (from startY to endY)
+    public void run() {
         for (int y = startY; y < endY; y++) {
             for (int x = 0; x < width; x++) {
                 double ndcX = (x + 0.5) / width;
@@ -258,7 +258,7 @@ class RenderTask implements Runnable {
                 Color color = traceRay(ray, scene, 0); // Recursion depth
                 synchronized (image) {
                     image.setRGB(x, y, color.getRGB());
-                }   
+                }
             }
         }
     }

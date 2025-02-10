@@ -80,7 +80,9 @@ class Camera {
 class Scene {
     ArrayList<Vector3> vertices = new ArrayList<>();
     ArrayList<Face> faces = new ArrayList<>();
-    Vector3 light; // Light source position
+
+    Vector3 light; // Light source position *change* 
+
 }
 
 class Vector3 {
@@ -257,6 +259,7 @@ class RenderTask implements Runnable {
             Vector3 v0 = scene.vertices.get(face.vertices[0]);
             Vector3 v1 = scene.vertices.get(face.vertices[1]);
             Vector3 v2 = scene.vertices.get(face.vertices[2]);
+
             Intersection intersection = RayTracer.intersectRayTriangle(ray, v0, v1, v2);
             if (intersection.hit && (closestIntersection == null || intersection.distance < closestIntersection.distance)) {
                 closestIntersection = intersection;
@@ -264,33 +267,43 @@ class RenderTask implements Runnable {
         }
 
         if (closestIntersection != null) {
-            // Shadow calculation
-            Vector3 lightDirection = scene.light.subtract(closestIntersection.point).normalize();
-            Ray shadowRay = new Ray(closestIntersection.point, lightDirection);
-            boolean inShadow = false;
+            // Shadow calculation *change*
 
-            for (Face face : scene.faces) {
-                Vector3 v0 = scene.vertices.get(face.vertices[0]);
-                Vector3 v1 = scene.vertices.get(face.vertices[1]);
-                Vector3 v2 = scene.vertices.get(face.vertices[2]);
-                Intersection shadowIntersection = RayTracer.intersectRayTriangle(shadowRay, v0, v1, v2);
-                if (shadowIntersection.hit && shadowIntersection.distance > 1e-7) {
-                    inShadow = true;
-                    break;
+            Vector3 lightDirection = scene.light.subtract(closestIntersection.point).normalize(); //*change*
+
+            Ray shadowRay = new Ray(closestIntersection.point, lightDirection);//*change*
+            boolean rayEncountersShadow = false;//*change*
+
+            for (Face face : scene.faces) {//*change*
+
+
+                Vector3 v0 = scene.vertices.get(face.vertices[0]); // Vertices of the triangle//*change*
+                Vector3 v1 = scene.vertices.get(face.vertices[1]); // Vertices of the triangle//*change*
+                Vector3 v2 = scene.vertices.get(face.vertices[2]); // Vertices of the triangle //*change*
+
+                
+                Intersection shadowIntersection = RayTracer.intersectRayTriangle(shadowRay, v0, v1, v2); // Intersection with the shadow ray//*change*
+
+                if (shadowIntersection.hit && shadowIntersection.distance > 1e-7) { // Check if the intersection is valid//*change*
+
+                    rayEncountersShadow = true;//*change*
+
+                    break;//*change*
+
                 }
             }
 
-            // Calculate color with shadows
-            Color baseColor = new Color(200, 200, 200); // Base color of the object
-            if (inShadow) {
-                baseColor = new Color(
-                    (int) (baseColor.getRed() * 0.5),
-                    (int) (baseColor.getGreen() * 0.5),
-                    (int) (baseColor.getBlue() * 0.5)
+            // If the ray encounters an intersection point, than it will calculate a new color for the shadowed object, by dividing the base color by 2
+            Color baseColor = new Color(200, 200, 200); // Base color of the object//*change*
+            if (rayEncountersShadow) {//*change*
+                baseColor = new Color(//*change*
+                    (int) (baseColor.getRed() * 0.5),//*change*
+                    (int) (baseColor.getGreen() * 0.5),//*change*
+                    (int) (baseColor.getBlue() * 0.5)//*change*
                 );
             }
 
-            // Reflection
+            // a calculation where the reflection of the object is decided.
             Vector3 reflectedDirection = reflect(ray.direction, closestIntersection.normal).normalize();
             Ray reflectedRay = new Ray(closestIntersection.point, reflectedDirection);
             Color reflectedColor = traceRay(reflectedRay, scene, depth + 1);
@@ -301,11 +314,11 @@ class RenderTask implements Runnable {
             int b = (int) (0.5 * reflectedColor.getBlue() + 0.5 * baseColor.getBlue());
             return new Color(Math.min(r, 255), Math.min(g, 255), Math.min(b, 255));
         } else {
-            return new Color(0, 0, 0); // background color
+            return new Color(0, 0, 0); // background color, black
         }
     }
 
-    private static Vector3 reflect(Vector3 direction, Vector3 normal) {
+    private static Vector3 reflect(Vector3 direction, Vector3 normal) { // Reflect the ray direction by: d - 2 * dot(d, n) * n (d: direction, n: normal)
         double dotProduct = direction.dot(normal);
         return direction.subtract(normal.multiply(2 * dotProduct));
     }
