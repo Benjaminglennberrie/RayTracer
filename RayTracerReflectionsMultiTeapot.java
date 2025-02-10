@@ -256,15 +256,17 @@ class RenderTask implements Runnable {
                 screenX *= aspectRatio;
 
                 Vector3 rayDirection = new Vector3(screenX, screenY, -1).normalize();
-                Vector3 ray2Direction = new Vector3(screenX, screenY, 5).normalize();
+                Vector3 ray2Direction = new Vector3(screenX, screenY, 1).normalize();
                 Ray ray = new Ray(camera.position, rayDirection);
                 Ray ray2 = new Ray(camera.position.subtract(new Vector3(0,0,40)), ray2Direction);
 
                 Color color = traceRay(ray, scene, 0); // Recursion depth
                 Color color2 = traceShadowRay(ray2, scene, 0);
                 synchronized (image) {
-                    int avgBlue = color.getBlue() / 2 + color2.getBlue() / 2;
-                    image.setRGB(x, y, new Color(avgBlue, avgBlue, avgBlue).getRGB());
+                    int color1Blue = color.getRed();
+                    int color2Blue = color2.getRed();
+                    int color1BlueMinusColor2Blue = color1Blue - color2Blue;
+                    image.setRGB(x, y, new Color(color1BlueMinusColor2Blue, color1BlueMinusColor2Blue, color1BlueMinusColor2Blue).getRGB());
                 }
             }
         }
