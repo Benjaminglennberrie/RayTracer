@@ -45,7 +45,7 @@ public class RayTracerReflectionsMultiTeapot {
         }
 
         // Save the final rendered image
-        ImageIO.write(image, "png", new File("outputWithShadows3.png"));
+        ImageIO.write(image, "png", new File("outputWithShadowsFinal.png"));
     }
 
     private static void adjustFaceIndices(Scene scene, int vertexOffset) {
