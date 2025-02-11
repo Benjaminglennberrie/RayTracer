@@ -45,7 +45,7 @@ public class RayTracerReflectionsMultiTeapot {
         }
 
         // Save the final rendered image
-        ImageIO.write(image, "png", new File("outputWithShadows.png"));
+        ImageIO.write(image, "png", new File("outputWithShadows3.png"));
     }
 
     private static void adjustFaceIndices(Scene scene, int vertexOffset) {
@@ -241,7 +241,7 @@ class RenderTask implements Runnable {
                 screenX *= aspectRatio;
                 Vector3 rayDirection = new Vector3(screenX, screenY, -1).normalize();
                 Ray ray = new Ray(camera.position, rayDirection);
-                Color color = traceRay(ray, scene, 0); // Recursion depth
+                Color color = traceRay(ray, scene, 0, 0); // Recursion depth
                 synchronized (image) {
                     image.setRGB(x, y, color.getRGB());
                 }
@@ -249,7 +249,7 @@ class RenderTask implements Runnable {
         }
     }
 
-    private static Color traceRay(Ray ray, Scene scene, int depth) {
+    private static Color traceRay(Ray ray, Scene scene, int depth, int numShadowIntersections) {
         if (depth > MAX_REFLECTION_DEPTH) {
             return new Color(0, 0, 0); // return black for maximum recursion depth
         }
@@ -294,19 +294,21 @@ class RenderTask implements Runnable {
             }
 
             // If the ray encounters an intersection point, than it will calculate a new color for the shadowed object, by dividing the base color by 2
-            Color baseColor = new Color(200, 200, 200); // Base color of the object//*change*
+            Color baseColor = new Color(200 - numShadowIntersections * 15, 200 - numShadowIntersections * 15, 200 - numShadowIntersections * 15); // Base color of the object//*change*
             if (rayEncountersShadow) {//*change*
                 baseColor = new Color(//*change*
-                    (int) (baseColor.getRed() * 0.5),//*change*
-                    (int) (baseColor.getGreen() * 0.5),//*change*
-                    (int) (baseColor.getBlue() * 0.5)//*change*
+                    (int) (baseColor.getRed() - 20),//*change*
+                    (int) (baseColor.getGreen() - 20),//*change*
+                    (int) (baseColor.getBlue() - 15)//*change*
                 );
+
+                numShadowIntersections++;
             }
 
             // a calculation where the reflection of the object is decided.
             Vector3 reflectedDirection = reflect(ray.direction, closestIntersection.normal).normalize();
             Ray reflectedRay = new Ray(closestIntersection.point, reflectedDirection);
-            Color reflectedColor = traceRay(reflectedRay, scene, depth + 1);
+            Color reflectedColor = traceRay(reflectedRay, scene, depth + 1, numShadowIntersections);
 
             // Combine base color and reflected color
             int r = (int) (0.5 * reflectedColor.getRed() + 0.5 * baseColor.getRed());
@@ -323,5 +325,5 @@ class RenderTask implements Runnable {
         return direction.subtract(normal.multiply(2 * dotProduct));
     }
 
-    private static final int MAX_REFLECTION_DEPTH = 3;
+    private static final int MAX_REFLECTION_DEPTH = 10;
 }
